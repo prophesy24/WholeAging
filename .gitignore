@@ -2,3 +2,14 @@
 .Rhistory
 .RData
 .Ruserdata
+
+# 特定文件夹
+01_rawdata/
+03_result/
+04_figure/
+
+# 特定拓展后缀文件
+*.pdf
+*.xlsx
+*.xls
+*.csv

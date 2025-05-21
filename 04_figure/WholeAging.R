@@ -16,16 +16,7 @@ Sample <- data.frame(Sample)
 
 # 统计分析 ----
 ## 年龄分布展示----
-ggplot(Sample, aes(x = Age)) +
-  geom_histogram(binwidth = 1, fill = "#4A90E2", color = "white", boundary = 0) +
-  labs(title = "Age Distribution of Samples",
-       x = "Age", y = "Count") +
-  theme_minimal(base_size = 14)
 
-ggplot(Sample, aes(x = Age)) +
-  geom_density(fill = "#E91E63", alpha = 0.4) +
-  labs(title = "Age Density Distribution", x = "Age", y = "Density") +
-  theme_minimal(base_size = 14)
 
 ggplot(Sample, aes(x = Age, fill = Gender)) +
   geom_histogram(binwidth = 1, position = "stack", color = "white") +
