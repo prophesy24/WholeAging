@@ -8,11 +8,70 @@ library(ggpubr)
 library(pheatmap)
 library(reshape2)
 library(VIM)
+library(tidyverse)
+library(naniar)
 
 # Sample导入 ----
 Sample <- read_excel("01_rawdata/Sample.xlsx")
 View(Sample)
 Sample <- data.frame(Sample)
+
+# 缺失值统计 ----
+# 血常规指标列
+blood_vars <- c("WBC", "NEU_count", "LYM_count", "MONO_count", "EOS_count", "BASO_count",
+                "NEU_percent", "LYM_percent", "MONO_percent", "EOS_percent", "BASO_percent",
+                "RBC", "HGB", "HCT", "PLT")
+
+# 筛选数据并计算缺失率
+missing_blood <- Sample %>%
+  select(all_of(blood_vars)) %>%
+  summarise(across(everything(), ~mean(is.na(.)) * 100)) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "MissingPercent")
+
+# 画图
+ggplot(missing_blood, aes(x = reorder(Variable, -MissingPercent), y = MissingPercent)) +
+  geom_bar(stat = "identity", fill = "#f8766d") +
+  coord_flip() +
+  labs(title = "Missing Data Percentage in Blood Routine Indicators",
+       x = "Indicator", y = "Missing (%)") +
+  theme_minimal(base_size = 14)
+
+## 每个SubGroup的缺失情况 ----
+# 构建缺失比例数据框
+missing_summary <- Sample %>%
+  select(PersonID, SubGroup, all_of(blood_vars)) %>%
+  pivot_longer(cols = all_of(blood_vars), names_to = "Variable", values_to = "Value") %>%
+  mutate(Missing = ifelse(is.na(Value), 1, 0)) %>%
+  group_by(SubGroup, Variable) %>%
+  summarise(MissingPercent = mean(Missing) * 100, .groups = "drop")
+
+# 画热图
+ggplot(missing_summary, aes(x = Variable, y = SubGroup, fill = MissingPercent)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "white", high = "#d73027") +
+  labs(title = "Missing Percentage of Blood Indicators by SubGroup",
+       x = "Indicator", y = "SubGroup", fill = "Missing (%)") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+## 提取具体缺失的行 ----、
+# 提取缺失行的明细
+missing_detail <- Sample %>%
+  select(PersonID, SubGroup, all_of(blood_vars)) %>%
+  pivot_longer(cols = all_of(blood_vars), names_to = "Variable", values_to = "Value") %>%
+  filter(is.na(Value)) %>%
+  arrange(SubGroup, Variable)
+
+# 提取包含缺失血常规指标的行
+sample_missing_rows <- Sample %>%
+  filter(if_any(all_of(blood_vars), is.na))  # 至少一个血常规字段缺失
+
+# 查看前几行
+print(head(sample_missing_rows))
+
+setwd("../03_result/")
+# 导出为 Excel
+write.xlsx(sample_missing_rows, file = "Sample_Rows_with_Blood_Missing.xlsx")
 
 # 统计分析 ----
 ## 年龄分布展示----
@@ -21,11 +80,20 @@ Sample <- data.frame(Sample)
 ggplot(Sample, aes(x = Age, fill = Gender)) +
   geom_histogram(binwidth = 1, position = "stack", color = "white") +
   scale_fill_manual(values = c("M" = "#669aba", "F" = "#be1420")) +
+  scale_x_continuous(breaks = floor(min(Sample$Age)):ceiling(max(Sample$Age))) +
   labs(title = "Age Distribution by Gender",
        x = "Age", y = "Count", fill = "Gender") +
-  theme_minimal(base_size = 14)
-ggsave("Age Distribution by Gender.pdf",
-       width = 8, height = 6, dpi = 300, bg = "white")
+  theme_minimal(base_size = 14) +
+  theme(
+    axis.text = element_text(color = "black", size = 10),
+    axis.title = element_text(color = "black"),
+    plot.title = element_text(hjust = 0.5),
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)  # x轴刻度旋转
+  )
+
+# 保存图像：适当拉宽
+ggsave("Age Distribution by Gender - Every Year Tick.pdf",
+       width = 16, height = 6, dpi = 300, bg = "white")
 
 ## 男女比例 ----
 # 计算每组比例
@@ -37,7 +105,6 @@ plot_data <- Sample %>%
          label = percent(prop, accuracy = 1))  # 百分比标签
 
 # 画图
-setwd("./04_figure/")
 AgeGroup_order <- c("Young", "Adult", "Elderly")
 plot_data$AgeGroup <- factor(plot_data$AgeGroup, levels = AgeGroup_order)
 
@@ -184,22 +251,7 @@ ggsave("WBC Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 
-
 ### NEU_count----
-ggplot(Sample, aes(x = AgeTier, y = NEU_count, fill = AgeTier)) +
-  geom_boxplot(outlier.shape = NA, alpha = 0.7) +
-  geom_jitter(width = 0.2, alpha = 0.4, color = "black", size = 1) +
-  labs(title = "NEU_count Distribution Across SubGroups",
-       x = "Agetier", y = "NEU_count (10^9/L)") +
-  ggtitle("NEU_count Distribution Across Agetier") +
-  theme_minimal(base_size = 14) +
-  theme(legend.position = "right",
-        plot.title = element_text(hjust = 0.5))
-ggsave("NEU_count Distribution Across AgeTier.pdf",
-       width = 8, height = 6, dpi = 300, bg = "white")
-
-
-
 ggplot(Sample, aes(x = AgeGroup, y = NEU_count, fill = AgeGroup)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7) +
   geom_jitter(width = 0.2, alpha = 0.4, color = "black", size = 1) +
@@ -422,6 +474,60 @@ ggplot(Sample, aes(x = AgeGroup, y = PLT, fill = AgeGroup)) +
   method = "wilcox.test", label = "p.signif")
 ggsave("PLT Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
+
+### 血常规组内差异 ----
+# 设定你要分析的血常规指标
+indicators <- blood_vars
+# 转为长格式
+long_data <- Sample %>%
+  select(PersonID, AgeGroup, SubGroup, all_of(indicators)) %>%
+  pivot_longer(cols = all_of(indicators), names_to = "Indicator", values_to = "Value") %>%
+  filter(!is.na(Value))
+
+# 设置 SubGroup 顺序
+long_data$SubGroup <- factor(long_data$SubGroup,
+                             levels = c("Young_1", "Young_2", "Young_3", "Young_4",
+                                        "Adult_1", "Adult_2", "Adult_3", "Adult_4",
+                                        "Elderly_1", "Elderly_2", "Elderly_3"))
+
+# 每个指标循环画图
+for (ind in indicators) {
+  df_plot <- long_data %>% filter(Indicator == ind)
+  
+  # 自动生成每个 AgeGroup 下的 pairwise 对比
+  stat_list <- df_plot %>%
+    group_by(AgeGroup) %>%
+    summarise(comparisons = list(combn(unique(SubGroup), 2, simplify = FALSE))) %>%
+    deframe()
+  
+  # 分组标注显著性
+  p <- ggplot(df_plot, aes(x = SubGroup, y = Value, fill = SubGroup)) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+    geom_jitter(width = 0.2, alpha = 0.4, size = 0.5) +
+    facet_wrap(~AgeGroup, scales = "free_x") +
+    stat_compare_means(
+      method = "wilcox.test",
+      label = "p.signif",
+      comparisons = unlist(stat_list, recursive = FALSE),
+      label.y.npc = "top",
+      hide.ns = TRUE
+    ) +
+    labs(
+      title = paste(ind, "Distribution Across SubGroups in Each AgeGroup"),
+      x = "SubGroup", y = ind
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      plot.title = element_text(hjust = 0.5)
+    )
+  
+  # 保存图像
+  ggsave(
+    filename = paste0("SubGroup_Comparison_", ind, "_with_significance.pdf"),
+    plot = p, width = 9, height = 6.5, dpi = 300, bg = "white"
+  )
+}
 
 ## 血常规均值热图----
 # 先计算平均值
