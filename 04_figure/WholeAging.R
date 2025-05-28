@@ -10,6 +10,7 @@ library(reshape2)
 library(VIM)
 library(tidyverse)
 library(naniar)
+library(corrplot)
 
 # Sample导入 ----
 Sample <- read_excel("01_rawdata/Sample.xlsx")
@@ -94,6 +95,35 @@ ggplot(Sample, aes(x = Age, fill = Gender)) +
 # 保存图像：适当拉宽
 ggsave("Age Distribution by Gender - Every Year Tick.pdf",
        width = 16, height = 6, dpi = 300, bg = "white")
+
+### 年龄的最大值、最小值等----
+# 整体
+summary(Sample$Age)
+mean(Sample$Age, na.rm = TRUE)
+range(Sample$Age, na.rm = TRUE)
+
+# 男女
+Sample %>%
+  group_by(Gender) %>%
+  summarise(
+    Min = min(Age, na.rm = TRUE),
+    Q1 = quantile(Age, 0.25, na.rm = TRUE),
+    Median = median(Age, na.rm = TRUE),
+    Mean = mean(Age, na.rm = TRUE),
+    Q3 = quantile(Age, 0.75, na.rm = TRUE),
+    Max = max(Age, na.rm = TRUE),
+    SD = sd(Age, na.rm = TRUE),
+    Count = n()
+  )
+
+# 密度图
+ggplot(Sample, aes(x = Age, fill = Gender)) +
+  geom_density(alpha = 0.4) +
+  scale_fill_manual(values = c("M" = "#669aba", "F" = "#be1420")) +
+  labs(title = "Age Density by Gender", x = "Age", y = "Density") +
+  theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(hjust = 0.5))
+
 
 ## 男女比例 ----
 # 计算每组比例
@@ -600,3 +630,38 @@ ggsave("NA in Height Weight Smoke Drunk.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 
+## 相关性分析----
+# 探索是否有强相关的指标
+blood_data <- Sample[, blood_vars]
+blood_cor <- cor(blood_data, use = "pairwise.complete.obs", method = "spearman")
+pdf("Blood_Correlation_Heatmap.pdf", width = 7, height = 6)
+corrplot(blood_cor,
+         method = "color",
+         type = "upper",
+         addCoef.col = "black",
+         tl.col = "black",
+         tl.cex = 0.8,
+         number.cex = 0.7,
+         col = colorRampPalette(c("blue", "white", "red"))(200),
+         mar = c(1,1,1,1))
+dev.off()
+## 血常规的年龄趋势图 ----
+# 创建一个列表用于保存图
+plot_list <- list()
+
+# 循环生成图并保存
+for (var in blood_vars) {
+  p <- ggscatter(Sample, x = "Age", y = var,
+                 add = "reg.line", conf.int = TRUE,
+                 cor.coef = TRUE, cor.method = "spearman",
+                 xlab = "Age", ylab = var,
+                 title = paste(var, "vs Age")) +
+    theme_minimal(base_size = 14)
+  
+  # 保存图像为 PDF（也可换成 .png）
+  ggsave(filename = paste0("Scatter_", var, "_vs_Age.pdf"),
+         plot = p, width = 6, height = 5, dpi = 300)
+  
+  # 存入列表
+  plot_list[[var]] <- p
+}
