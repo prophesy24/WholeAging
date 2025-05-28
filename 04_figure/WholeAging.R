@@ -160,7 +160,7 @@ ggplot(long_data, aes(x = SubGroup, y = Value, fill = SubGroup)) +
 ggsave("Blood routine indicators distribution by SubGroup.pdf",
        width = 12, height = 9, dpi = 300, bg = "white")
 
-### 按AgeGroup统计最大值、最小值、均值
+### 按AgeGroup统计最大值、最小值、均值----
 agegroup_stats <- Sample %>%
   group_by(AgeGroup) %>%
   summarise(across(all_of(blood_vars),
@@ -233,6 +233,31 @@ Sample$AgeGroup <- factor(Sample$AgeGroup, levels = c(
   "Young", "Adult", "Elderly"
 ))
 
+Sample$SubGroup <- factor(Sample$SubGroup, levels = c("Young_1", "Young_2", "Young_3", "Young_4",
+                     "Adult_1", "Adult_2", "Adult_3", "Adult_4",
+                     "Elderly_1", "Elderly_2", "Elderly_3"))
+
+# 遍历每个指标并绘图
+for (var in blood_vars) {
+  p <- ggplot(Sample, aes(x = SubGroup, y = .data[[var]], fill = AgeGroup)) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+    geom_jitter(width = 0.2, alpha = 0.4, size = 0.8, color = "black") +
+    labs(title = paste(var, "Distribution Across SubGroups"),
+         x = "SubGroup", y = var) +
+    theme_minimal(base_size = 13) +
+    theme(
+      axis.text.x = element_text(angle = 45, hjust = 1),
+      plot.title = element_text(hjust = 0.5),
+    ) +
+    scale_fill_brewer(palette = "Set2")
+  
+  # 显示图像
+  print(p)
+  
+  # 可选：保存为 PDF
+  ggsave(paste0("Blood_", var, "_by_SubGroup.pdf"),
+         plot = p, width = 10, height = 6, dpi = 300)
+}
 
 ### WBC----
 ggplot(Sample, aes(x = AgeGroup, y = WBC, fill = AgeGroup)) +
@@ -460,7 +485,7 @@ ggsave("HCT Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### PLT----
-ggplot(Sample, aes(x = AgeGroup, y = PLT, fill = AgeGroup)) +
+ggplot(Sample, aes(x = SubGroup, y = PLT, fill = AgeGroup)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7) +
   geom_jitter(width = 0.2, alpha = 0.4, color = "black", size = 1) +
   labs(x = "AgeGroup", y = "PLT (10^9/L)", title = "PLT Distribution Across AgeGroup") +
@@ -476,58 +501,45 @@ ggsave("PLT Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### 血常规组内差异 ----
-# 设定你要分析的血常规指标
-indicators <- blood_vars
-# 转为长格式
-long_data <- Sample %>%
-  select(PersonID, AgeGroup, SubGroup, all_of(indicators)) %>%
-  pivot_longer(cols = all_of(indicators), names_to = "Indicator", values_to = "Value") %>%
-  filter(!is.na(Value))
+result_list <- list()
 
-# 设置 SubGroup 顺序
-long_data$SubGroup <- factor(long_data$SubGroup,
-                             levels = c("Young_1", "Young_2", "Young_3", "Young_4",
-                                        "Adult_1", "Adult_2", "Adult_3", "Adult_4",
-                                        "Elderly_1", "Elderly_2", "Elderly_3"))
-
-# 每个指标循环画图
-for (ind in indicators) {
-  df_plot <- long_data %>% filter(Indicator == ind)
-  
-  # 自动生成每个 AgeGroup 下的 pairwise 对比
-  stat_list <- df_plot %>%
-    group_by(AgeGroup) %>%
-    summarise(comparisons = list(combn(unique(SubGroup), 2, simplify = FALSE))) %>%
-    deframe()
-  
-  # 分组标注显著性
-  p <- ggplot(df_plot, aes(x = SubGroup, y = Value, fill = SubGroup)) +
-    geom_boxplot(outlier.shape = NA, alpha = 0.7) +
-    geom_jitter(width = 0.2, alpha = 0.4, size = 0.5) +
-    facet_wrap(~AgeGroup, scales = "free_x") +
-    stat_compare_means(
-      method = "wilcox.test",
-      label = "p.signif",
-      comparisons = unlist(stat_list, recursive = FALSE),
-      label.y.npc = "top",
-      hide.ns = TRUE
-    ) +
-    labs(
-      title = paste(ind, "Distribution Across SubGroups in Each AgeGroup"),
-      x = "SubGroup", y = ind
-    ) +
-    theme_minimal(base_size = 12) +
-    theme(
-      axis.text.x = element_text(angle = 45, hjust = 1),
-      plot.title = element_text(hjust = 0.5)
-    )
-  
-  # 保存图像
-  ggsave(
-    filename = paste0("SubGroup_Comparison_", ind, "_with_significance.pdf"),
-    plot = p, width = 9, height = 6.5, dpi = 300, bg = "white"
-  )
+for (var in blood_vars) {
+  for (ag in unique(Sample$AgeGroup)) {
+    
+    sub_data <- Sample %>%
+      filter(AgeGroup == ag, !is.na(.data[[var]])) %>%
+      select(SubGroup, !!sym(var))
+    
+    if (length(unique(sub_data$SubGroup)) > 1) {
+      combn_pairs <- combn(unique(sub_data$SubGroup), 2, simplify = FALSE)
+      
+      for (pair in combn_pairs) {
+        group1 <- sub_data %>% filter(SubGroup == pair[1]) %>% pull(!!sym(var))
+        group2 <- sub_data %>% filter(SubGroup == pair[2]) %>% pull(!!sym(var))
+        
+        if (length(group1) > 1 & length(group2) > 1) {
+          p <- wilcox.test(group1, group2)$p.value
+          result_list[[length(result_list) + 1]] <- data.frame(
+            Indicator = var,
+            AgeGroup = ag,
+            Group1 = pair[1],
+            Group2 = pair[2],
+            p_value = p,
+            Significance = ifelse(p < 0.001, "***",
+                                  ifelse(p < 0.01, "**",
+                                         ifelse(p < 0.05, "*", "ns")))
+          )
+        }
+      }
+    }
+  }
 }
+
+# 合并为一个数据框
+final_result <- bind_rows(result_list)
+
+write.xlsx(final_result, "SubGroup_Comparison_by_AgeGroup.xlsx", row.Names = FALSE)
+
 
 ## 血常规均值热图----
 # 先计算平均值
