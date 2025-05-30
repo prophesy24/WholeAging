@@ -11,6 +11,7 @@ library(VIM)
 library(tidyverse)
 library(naniar)
 library(corrplot)
+library(glmnet)
 
 # Sample导入 ----
 Sample <- read_excel("01_rawdata/Sample.xlsx")
@@ -717,3 +718,48 @@ print(p)
 # 保存（每个小图大致正方形，整图较大）
 ggsave("Gender_Age_Trends_SquarePanels.pdf", plot = p,
        width = 14, height = 14, dpi = 300, bg = "white")
+
+# 血液钟测试 ----
+# 只保留无缺失的数据
+df <- Sample[, c("Age", markers)]
+df <- na.omit(df)
+
+# 构建 X 和 Y
+x <- as.matrix(scale(df[, markers]))  # 标准化
+y <- df$Age
+
+# LASSO回归+交叉验证
+set.seed(123)
+cvfit <- cv.glmnet(x, y, alpha = 1, nfolds = 10)
+
+# 最佳 lambda
+best_lambda <- cvfit$lambda.min
+best_lambda
+# 提取模型系数
+coef(cvfit, s = "lambda.min")
+
+# 预测
+y_pred <- predict(cvfit, newx = x, s = "lambda.min")
+
+# 作图
+library(ggplot2)
+
+plot_df <- data.frame(Actual = y, Predicted = as.vector(y_pred))
+
+ggplot(plot_df, aes(x = Actual, y = Predicted)) +
+  geom_point(alpha = 0.6, color = "#0072B2", size = 2) +
+  geom_smooth(method = "lm", se = FALSE, color = "black") +
+  labs(title = "Lasso-Predicted Age vs Actual Age",
+       x = "Actual Age", y = "Predicted Age") +
+  theme_minimal(base_size = 14) +
+  coord_equal()
+
+# 模型指标评价
+# 评估
+MAE <- mean(abs(y - y_pred))
+RMSE <- sqrt(mean((y - y_pred)^2))
+R2 <- cor(y, y_pred)^2
+
+cat("MAE:", round(MAE, 2), "\n")
+cat("RMSE:", round(RMSE, 2), "\n")
+cat("R²:", round(R2, 3), "\n")
