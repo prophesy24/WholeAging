@@ -665,3 +665,55 @@ for (var in blood_vars) {
   # 存入列表
   plot_list[[var]] <- p
 }
+
+# 男性和女性的年龄趋势图 ----
+ggplot(Sample, aes(x = Age, y = PLT, color = Gender)) +
+  geom_point(alpha = 0.4, size = 1) +
+  geom_smooth(method = "loess", se = FALSE, size = 1.2) +
+  scale_color_manual(values = c("M" = "#0072B2", "F" = "#e78ac3")) +  # 蓝和粉
+  labs(title = "PLT Trend by Age and Gender",
+       x = "Age", y = "PLT (10^9/L)", color = "Gender") +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black")
+  )
+# 你要展示的血常规指标
+markers <- blood_vars
+
+long_df <- Sample %>%
+  select(Age, Gender, all_of(markers)) %>%
+  pivot_longer(cols = all_of(markers), names_to = "Marker", values_to = "Value")
+
+# 控制小图顺序
+long_df$Marker <- factor(long_df$Marker, levels = markers)
+
+# 自定义颜色
+color_palette <- c("M" = "#67A3BD",  # 深蓝色
+                   "F" = "#D1626B")  # 深粉色
+
+# 绘图
+p <- ggplot(long_df, aes(x = Age, y = Value, color = Gender)) +
+  geom_point(alpha = 0.3, size = 1.2) +
+  geom_smooth(method = "loess", se = FALSE, size = 1.3, span = 1) +
+  facet_wrap(~ Marker, scales = "free", ncol = 4) +
+  scale_color_manual(values = color_palette) +
+  labs(x = "Age", y = "Measurement", title = "Age-related Trends of Blood Markers by Gender") +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    strip.text = element_text(size = 13, face = "bold"),
+    axis.text = element_text(color = "black"),
+    axis.title = element_text(color = "black"),
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size = 12),
+    aspect.ratio = 1  # 关键：强制每个面板为正方形
+  )
+
+# 显示图形
+print(p)
+
+# 保存（每个小图大致正方形，整图较大）
+ggsave("Gender_Age_Trends_SquarePanels.pdf", plot = p,
+       width = 14, height = 14, dpi = 300, bg = "white")
