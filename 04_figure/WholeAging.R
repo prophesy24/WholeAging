@@ -13,6 +13,7 @@ library(naniar)
 library(corrplot)
 library(glmnet)
 library(ggpubr)
+library(openxlsx)
 
 # Sample导入 ----
 Sample <- read_excel("01_rawdata/Sample.xlsx")
@@ -661,9 +662,12 @@ ggsave("NA in Height Weight Smoke Drunk.pdf",
 
 ## 相关性分析----
 # 探索是否有强相关的指标
-blood_data <- Sample[, blood_vars]
+blood_corr <- c("Age", "WBC", "NEU_count", "LYM_count", "MONO_count", "EOS_count", "BASO_count", 
+                "NEU_percent", "LYM_percent", "MONO_percent", "EOS_percent", "BASO_percent",
+                "RBC", "HGB", "HCT", "PLT")
+blood_data <- Sample[, blood_corr]
 blood_cor <- cor(blood_data, use = "pairwise.complete.obs", method = "spearman")
-pdf("Blood_Correlation_Heatmap.pdf", width = 7, height = 6)
+pdf("../Blood_Correlation_Heatmap.pdf", width = 7, height = 6)
 corrplot(blood_cor,
          method = "color",
          type = "upper",
@@ -1419,3 +1423,48 @@ print(p)
 # 保存（每个小图大致正方形，整图较大）
 ggsave("Gender_Age_Trends_SquarePanels.pdf", plot = p,
        width = 14, height = 14, dpi = 300, bg = "white")
+
+
+# 收缩压、舒张压、脉搏分析 ----
+# 筛选Adult组
+adult_data <- subset(Sample, AgeGroup == "Adult")
+
+# 设定SubGroup顺序（如果之前设定过，可略）
+adult_data$SubGroup <- factor(adult_data$SubGroup,
+                              levels = c("Adult_1", "Adult_2", "Adult_3", "Adult_4"))
+
+# 要分析的变量
+vars <- c("SBP", "DBP", "HR")
+names <- c("Systolic BP (SBP)", "Diastolic BP (DBP)", "Heart Rate (HR)")
+ylabs <- c("SBP (mmHg)", "DBP (mmHg)", "Heart Rate (bpm)")
+
+# 循环绘图
+plots <- lapply(1:3, function(i) {
+  ggplot(adult_data, aes(x = SubGroup, y = .data[[vars[i]]], fill = SubGroup)) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+    geom_jitter(width = 0.2, alpha = 0.4, color = "black", size = 1.2) +
+    stat_compare_means(comparisons = list(
+      c("Adult_1", "Adult_2"),
+      c("Adult_1", "Adult_3"),
+      c("Adult_1", "Adult_4"),
+      c("Adult_2", "Adult_3"),
+      c("Adult_2", "Adult_4"),
+      c("Adult_3", "Adult_4")
+    ),
+    method = "wilcox.test", label = "p.signif") +
+    labs(title = names[i], x = "SubGroup", y = ylabs[i]) +
+    theme_minimal(base_size = 14) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.title = element_text(hjust = 0.5))
+})
+
+# 将三个图组合到一起
+library(patchwork)
+combined_plot <- plots[[1]] + plots[[2]] + plots[[3]] + plot_layout(ncol = 1)
+
+# 显示图
+print(combined_plot)
+
+# 保存图像
+ggsave("./04_figure/Adult_SubGroup_SBP_DBP_HR_comparison.pdf",
+       plot = combined_plot, width = 8, height = 12, dpi = 300)
