@@ -1468,3 +1468,39 @@ print(combined_plot)
 # 保存图像
 ggsave("./04_figure/Adult_SubGroup_SBP_DBP_HR_comparison.pdf",
        plot = combined_plot, width = 8, height = 12, dpi = 300)
+
+# 缺失值情况
+# 整理缺失信息
+missing_SBPDBPHR_data <- adult_data %>%
+  select(SubGroup, all_of(vars)) %>%
+  pivot_longer(cols = all_of(vars), names_to = "Variable", values_to = "Value") %>%
+  mutate(Status = ifelse(is.na(Value), "Missing", "Not Missing")) %>%
+  group_by(SubGroup, Variable, Status) %>%
+  summarise(Count = n(), .groups = "drop")
+
+ggplot(missing_SBPDBPHR_data, aes(x = SubGroup, y = Count, fill = Status)) +
+  geom_bar(stat = "identity", position = "fill") +
+  facet_wrap(~ Variable, ncol = 2) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_fill_manual(values = c("Not Missing" = "#4CAF50", "Missing" = "#F44336")) +
+  labs(title = "Missing Data Proportion of SBP / DBP / HR in Adult SubGroups",
+       x = "SubGroup", y = "Proportion", fill = "Status") +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  )
+ggplot(missing_SBPDBPHR_data, aes(x = SubGroup, y = Count, fill = Status)) +
+  geom_bar(stat = "identity", position = "fill") +
+  facet_wrap(~ Variable, ncol = 2) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_fill_manual(values = c("Not Missing" = "#4CAF50", "Missing" = "#F44336")) +
+  labs(title = "Missing Data Proportion of SBP / DBP / HR in Adult SubGroups",
+       x = "SubGroup", y = "Proportion", fill = "Status") +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  )
+ggsave("./04_figure/Missing_SBP_DBP_HR_in_Adult_SubGroups.pdf",
+       width = 8, height = 6, dpi = 300, bg = "white")
