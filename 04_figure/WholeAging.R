@@ -751,50 +751,7 @@ print(p)
 ggsave("Gender_Age_Trends_SquarePanels.pdf", plot = p,
        width = 14, height = 14, dpi = 300, bg = "white")
 
-# 血液钟测试 ----
-# 只保留无缺失的数据
-df <- Sample[, c("Age", markers)]
-df <- na.omit(df)
 
-# 构建 X 和 Y
-x <- as.matrix(scale(df[, markers]))  # 标准化
-y <- df$Age
-
-# LASSO回归+交叉验证
-set.seed(123)
-cvfit <- cv.glmnet(x, y, alpha = 1, nfolds = 10)
-
-# 最佳 lambda
-best_lambda <- cvfit$lambda.min
-best_lambda
-# 提取模型系数
-coef(cvfit, s = "lambda.min")
-
-# 预测
-y_pred <- predict(cvfit, newx = x, s = "lambda.min")
-
-# 作图
-library(ggplot2)
-
-plot_df <- data.frame(Actual = y, Predicted = as.vector(y_pred))
-
-ggplot(plot_df, aes(x = Actual, y = Predicted)) +
-  geom_point(alpha = 0.6, color = "#0072B2", size = 2) +
-  geom_smooth(method = "lm", se = FALSE, color = "black") +
-  labs(title = "Lasso-Predicted Age vs Actual Age",
-       x = "Actual Age", y = "Predicted Age") +
-  theme_minimal(base_size = 14) +
-  coord_equal()
-
-# 模型指标评价
-# 评估
-MAE <- mean(abs(y - y_pred))
-RMSE <- sqrt(mean((y - y_pred)^2))
-R2 <- cor(y, y_pred)^2
-
-cat("MAE:", round(MAE, 2), "\n")
-cat("RMSE:", round(RMSE, 2), "\n")
-cat("R²:", round(R2, 3), "\n")
 
 # 儿童样本只使用体检的样本 ----
 # Sample导入 ----
@@ -1490,17 +1447,6 @@ ggplot(missing_SBPDBPHR_data, aes(x = SubGroup, y = Count, fill = Status)) +
     axis.text.x = element_text(angle = 45, hjust = 1),
     plot.title = element_text(hjust = 0.5)
   )
-ggplot(missing_SBPDBPHR_data, aes(x = SubGroup, y = Count, fill = Status)) +
-  geom_bar(stat = "identity", position = "fill") +
-  facet_wrap(~ Variable, ncol = 2) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-  scale_fill_manual(values = c("Not Missing" = "#4CAF50", "Missing" = "#F44336")) +
-  labs(title = "Missing Data Proportion of SBP / DBP / HR in Adult SubGroups",
-       x = "SubGroup", y = "Proportion", fill = "Status") +
-  theme_minimal(base_size = 13) +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    plot.title = element_text(hjust = 0.5)
-  )
+
 ggsave("./04_figure/Missing_SBP_DBP_HR_in_Adult_SubGroups.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
