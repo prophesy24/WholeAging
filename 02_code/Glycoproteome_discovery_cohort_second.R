@@ -16,7 +16,7 @@ library(ggpubr)
 library(openxlsx)
 
 # Sample导入 ----
-Sample <- read_excel("01_rawdata/Sample_available.xlsx")
+Sample <- read_excel("01_rawdata/Sample_glycoproteome_discovery_second.xlsx")
 View(Sample)
 Sample <- data.frame(Sample)
 
@@ -26,15 +26,6 @@ blood_vars <- c("WBC", "NEU_count", "LYM_count", "MONO_count", "EOS_count", "BAS
                 "NEU_percent", "LYM_percent", "MONO_percent", "EOS_percent", "BASO_percent",
                 "RBC", "HGB", "HCT", "PLT")
 
-# 筛选数据并计算缺失率
-missing_blood <- Sample %>%
-  select(all_of(blood_vars)) %>%
-  summarise(across(everything(), ~mean(is.na(.)) * 100)) %>%
-  pivot_longer(cols = everything(), names_to = "Variable", values_to = "MissingPercent")
-print(missing_blood)
-
-# 统计分析 ----
-## 年龄分布展示----
 ggplot(Sample, aes(x = Age, fill = Gender)) +
   geom_histogram(binwidth = 1, position = "stack", color = "white") +
   scale_fill_manual(values = c("M" = "#669aba", "F" = "#be1420")) +
@@ -50,7 +41,7 @@ ggplot(Sample, aes(x = Age, fill = Gender)) +
   )
 
 # 保存图像：适当拉宽
-ggsave("./04_figure/sample_available/Age Distribution by Gender - Every Year Tick.pdf",
+ggsave("./04_figure/Glycoproteome_discovery_cohort/Age Distribution by Gender - Every Year Tick.pdf",
        width = 16, height = 6, dpi = 300, bg = "white")
 
 
@@ -107,7 +98,7 @@ ggplot(plot_data, aes(x = AgeGroup, y = prop, fill = Gender)) +
   theme_minimal(base_size = 14) +
   theme(legend.position = "right",
         plot.title = element_text(hjust = 0.5))
-ggsave("./04_figure/sample_available/SexRatio_by_AgeGroup.pdf",
+ggsave("./04_figure/Glycoproteome_discovery_cohort/SexRatio_by_AgeGroup.pdf",
        width = 6, height = 8, dpi = 300, bg = "white")
 
 # 指定比较组
@@ -135,7 +126,7 @@ p <- ggplot(Sample, aes(x = Gender, y = Age, fill = Gender)) +
 
 # 显示图
 print(p)
-ggsave("./04_figure/sample_available/Age_Boxplot_by_Gender.pdf", p, width = 6, height = 6, dpi = 300, bg = "white")
+ggsave("./04_figure/Glycoproteome_discovery_cohort/Age_Boxplot_by_Gender.pdf", p, width = 6, height = 6, dpi = 300, bg = "white")
 
 
 ## 各亚组血常规指标 ----
@@ -171,7 +162,7 @@ ggplot(long_data, aes(x = SubGroup, y = Value, fill = SubGroup)) +
   theme_minimal(base_size = 12) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(title = "Blood routine indicators distribution by SubGroup", x = "SubGroup", y = "Number")
-ggsave("./04_figure/sample_available/Blood routine indicators distribution by SubGroup.pdf",
+ggsave("./04_figure/Glycoproteome_discovery_cohort/Blood routine indicators distribution by SubGroup.pdf",
        width = 12, height = 9, dpi = 300, bg = "white")
 
 ### 按AgeGroup统计最大值、最小值、均值----
@@ -191,14 +182,16 @@ subgroup_stats <- Sample %>%
                         Max = ~max(.x, na.rm = TRUE),
                         Mean = ~mean(.x, na.rm = TRUE)),
                    .names = "{.col}_{.fn}"))
-write.xlsx(agegroup_stats, "./03_result/sample_available/AgeGroup_Blood_Stats.xlsx")
-write.xlsx(subgroup_stats, "./03_result/sample_available/SubGroup_Blood_Stats.xlsx")
+
+write.xlsx(agegroup_stats, "./03_result/Glycoproteome_discovery/AgeGroup_Blood_Stats.xlsx")
+write.xlsx(subgroup_stats, "./03_result/Glycoproteome_discovery/SubGroup_Blood_Stats.xlsx")
 
 # 组间差异检验
 # 正态分布假设成立时用ANOVA
 # 不满足正态用Kruskal-Wallis非参数检验
 # WBC
 # 检查正态性
+
 
 # 批量检验
 results <- lapply(blood_vars, function(var){
@@ -211,7 +204,7 @@ results_df <- do.call(rbind, results)
 results_df$variable <- blood_vars
 print(results_df)
 
-write.xlsx(results_df, "./03_result/sample_available/SubGroup_BloodRoutine_KW_results.xlsx")
+write.xlsx(results_df, "./SubGroup_BloodRoutine_KW_results.xlsx")
 
 # 可视化
 # 可视化前先按 p 值排序
@@ -231,6 +224,7 @@ ggplot(results_df_plot, aes(x = variable, y = p.value, fill = Significant)) +
        fill = "Significant (p < 0.05)") +
   theme_minimal(base_size = 13)
 
+setwd("../04_figure/")
 
 Sample$AgeTier <- factor(Sample$AgeTier, levels = c(
   "0-2", "3-6", "7-11", "12-17", "18-30", "31-40", "41-50", "51-59", "60-69", "70-79", "≥80"
@@ -262,7 +256,7 @@ for (var in blood_vars) {
   print(p)
   
   # 可选：保存为 PDF
-  ggsave(paste0("./04_figure/sample_available/Blood_", var, "_by_SubGroup.pdf"),
+  ggsave(paste0("./04_figure/Glycoproteome_discovery_cohort/Blood_", var, "_by_SubGroup.pdf"),
          plot = p, width = 10, height = 6, dpi = 300)
 }
 
@@ -279,7 +273,7 @@ ggplot(Sample, aes(x = AgeGroup, y = WBC, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/WBC Distribution Across AgeGroup.pdf",
+ggsave("WBC Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 
@@ -296,7 +290,7 @@ ggplot(Sample, aes(x = AgeGroup, y = NEU_count, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/NEU_count Distribution Across AgeGroup.pdf",
+ggsave("NEU_count Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### RBC----
@@ -312,7 +306,7 @@ ggplot(Sample, aes(x = AgeGroup, y = RBC, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/RBC Distribution Across AgeGroup.pdf",
+ggsave("RBC Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### LYM_count----
@@ -328,7 +322,7 @@ ggplot(Sample, aes(x = AgeGroup, y = LYM_count, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/LYM_count Distribution Across AgeGroup.pdf",
+ggsave("LYM_count Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### MONO_count----
@@ -344,7 +338,7 @@ ggplot(Sample, aes(x = AgeGroup, y = MONO_count, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/MONO_count Distribution Across AgeGroup.pdf",
+ggsave("MONO_count Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### EOS_count----
@@ -360,7 +354,7 @@ ggplot(Sample, aes(x = AgeGroup, y = EOS_count, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/EOS_count Distribution Across AgeGroup.pdf",
+ggsave("EOS_count Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### BASO_count----
@@ -376,7 +370,7 @@ ggplot(Sample, aes(x = AgeGroup, y = BASO_count, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/BASO_count Distribution Across AgeGroup.pdf",
+ggsave("BASO_count Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### NEU_percent----
@@ -392,7 +386,7 @@ ggplot(Sample, aes(x = AgeGroup, y = NEU_percent, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/NEU_percent Distribution Across AgeGroup.pdf",
+ggsave("NEU_percent Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### LYM_percent----
@@ -408,7 +402,7 @@ ggplot(Sample, aes(x = AgeGroup, y = LYM_percent, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/LYM_percent Distribution Across AgeGroup.pdf",
+ggsave("LYM_percent Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### MONO_percent----
@@ -424,7 +418,7 @@ ggplot(Sample, aes(x = AgeGroup, y = MONO_percent, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/MONO_percent Distribution Across AgeGroup.pdf",
+ggsave("MONO_percent Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### EOS_percent----
@@ -440,7 +434,7 @@ ggplot(Sample, aes(x = AgeGroup, y = EOS_percent, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/EOS_percent Distribution Across AgeGroup.pdf",
+ggsave("EOS_percent Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### BASO_percent----
@@ -456,7 +450,7 @@ ggplot(Sample, aes(x = AgeGroup, y = BASO_percent, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/BASO_percent Distribution Across AgeGroup.pdf",
+ggsave("BASO_percent Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### HGB ----
@@ -472,7 +466,7 @@ ggplot(Sample, aes(x = AgeGroup, y = HGB, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/HGB Distribution Across AgeGroup.pdf",
+ggsave("HGB Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### HCT----
@@ -488,14 +482,14 @@ ggplot(Sample, aes(x = AgeGroup, y = HCT, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/HCT Distribution Across AgeGroup.pdf",
+ggsave("HCT Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### PLT----
-ggplot(Sample, aes(x = AgeGroup, y = PLT, fill = AgeGroup)) +
+ggplot(Sample, aes(x = SubGroup, y = PLT, fill = AgeGroup)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.7) +
   geom_jitter(width = 0.2, alpha = 0.4, color = "black", size = 1) +
-  labs(x = "AgeGroup", y = "PLT (%)", title = "HCT Distribution Across AgeGroup") +
+  labs(x = "AgeGroup", y = "PLT (10^9/L)", title = "PLT Distribution Across AgeGroup") +
   theme_minimal(base_size = 14) +
   theme(plot.title = element_text(hjust = 0.5)) +
   stat_compare_means(comparisons = list(
@@ -504,7 +498,7 @@ ggplot(Sample, aes(x = AgeGroup, y = PLT, fill = AgeGroup)) +
     c("Adult", "Elderly")
   ),
   method = "wilcox.test", label = "p.signif")
-ggsave("./04_figure/sample_available/PLT Distribution Across AgeGroup.pdf",
+ggsave("PLT Distribution Across AgeGroup.pdf",
        width = 8, height = 6, dpi = 300, bg = "white")
 
 ### 血常规组内差异 ----
@@ -545,7 +539,7 @@ for (var in blood_vars) {
 # 合并为一个数据框
 final_result <- bind_rows(result_list)
 
-write.xlsx(final_result, "./03_result/sample_available/SubGroup_Comparison_by_AgeGroup.xlsx", row.Names = FALSE)
+write.xlsx(final_result, "SubGroup_Comparison_by_AgeGroup.xlsx", row.Names = FALSE)
 
 
 ## 血常规均值热图----
@@ -614,7 +608,7 @@ blood_corr <- c("Age", "WBC", "NEU_count", "LYM_count", "MONO_count", "EOS_count
                 "RBC", "HGB", "HCT", "PLT")
 blood_data <- Sample[, blood_corr]
 blood_cor <- cor(blood_data, use = "pairwise.complete.obs", method = "spearman")
-pdf("./04_figure/sample_available/Blood_Correlation_Heatmap.pdf", width = 7, height = 6)
+pdf("./04_figure/Glycoproteome_discovery_cohort/Blood_Correlation_Heatmap.pdf", width = 7, height = 6)
 corrplot(blood_cor,
          method = "color",
          type = "upper",
@@ -647,6 +641,7 @@ for (var in blood_vars) {
 }
 
 # 男性和女性的年龄趋势图 ----
+
 # 你要展示的血常规指标
 markers <- blood_vars
 
@@ -683,140 +678,5 @@ p <- ggplot(long_df, aes(x = Age, y = Value, color = Gender)) +
 print(p)
 
 # 保存（每个小图大致正方形，整图较大）
-ggsave("./04_figure/sample_available/Gender_Age_Trends_SquarePanels.pdf", plot = p,
+ggsave("./04_figure/Glycoproteome_discovery_cohort/Gender_Age_Trends_SquarePanels.pdf", plot = p,
        width = 14, height = 14, dpi = 300, bg = "white")
-
-# 收缩压、舒张压、脉搏分析 ----
-# 筛选Adult组
-adult_data <- subset(Sample, AgeGroup == "Adult")
-
-# 设定SubGroup顺序（如果之前设定过，可略）
-adult_data$SubGroup <- factor(adult_data$SubGroup,
-                              levels = c("Adult_1", "Adult_2", "Adult_3", "Adult_4"))
-
-# 要分析的变量
-vars <- c("SBP", "DBP", "HR")
-names <- c("Systolic BP (SBP)", "Diastolic BP (DBP)", "Heart Rate (HR)")
-ylabs <- c("SBP (mmHg)", "DBP (mmHg)", "Heart Rate (bpm)")
-
-# 循环绘图
-plots <- lapply(1:3, function(i) {
-  ggplot(adult_data, aes(x = SubGroup, y = .data[[vars[i]]], fill = SubGroup)) +
-    geom_boxplot(outlier.shape = NA, alpha = 0.7) +
-    geom_jitter(width = 0.2, alpha = 0.4, color = "black", size = 1.2) +
-    stat_compare_means(comparisons = list(
-      c("Adult_1", "Adult_2"),
-      c("Adult_1", "Adult_3"),
-      c("Adult_1", "Adult_4"),
-      c("Adult_2", "Adult_3"),
-      c("Adult_2", "Adult_4"),
-      c("Adult_3", "Adult_4")
-    ),
-    method = "wilcox.test", label = "p.signif") +
-    labs(title = names[i], x = "SubGroup", y = ylabs[i]) +
-    theme_minimal(base_size = 14) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1),
-          plot.title = element_text(hjust = 0.5))
-})
-
-# 将三个图组合到一起
-library(patchwork)
-combined_plot <- plots[[1]] + plots[[2]] + plots[[3]] + plot_layout(ncol = 1)
-
-# 显示图
-print(combined_plot)
-
-# 保存图像
-ggsave("./04_figure/Adult_SubGroup_SBP_DBP_HR_comparison.pdf",
-       plot = combined_plot, width = 8, height = 12, dpi = 300)
-
-# 缺失值情况
-# 整理缺失信息
-missing_SBPDBPHR_data <- adult_data %>%
-  select(SubGroup, all_of(vars)) %>%
-  pivot_longer(cols = all_of(vars), names_to = "Variable", values_to = "Value") %>%
-  mutate(Status = ifelse(is.na(Value), "Missing", "Not Missing")) %>%
-  group_by(SubGroup, Variable, Status) %>%
-  summarise(Count = n(), .groups = "drop")
-
-ggplot(missing_SBPDBPHR_data, aes(x = SubGroup, y = Count, fill = Status)) +
-  geom_bar(stat = "identity", position = "fill") +
-  facet_wrap(~ Variable, ncol = 2) +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-  scale_fill_manual(values = c("Not Missing" = "#4CAF50", "Missing" = "#F44336")) +
-  labs(title = "Missing Data Proportion of SBP / DBP / HR in Adult SubGroups",
-       x = "SubGroup", y = "Proportion", fill = "Status") +
-  theme_minimal(base_size = 13) +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    plot.title = element_text(hjust = 0.5)
-  )
-
-ggsave("./04_figure/Missing_SBP_DBP_HR_in_Adult_SubGroups.pdf",
-       width = 8, height = 6, dpi = 300, bg = "white")
-
-# 血常规置信区间（需要10%~90%的） ----
-quantile_stats <- Sample %>%
-  group_by(AgeGroup) %>%
-  summarise(across(all_of(blood_vars),
-                   list(P10 = ~quantile(.x, 0.10, na.rm = TRUE),
-                        P90 = ~quantile(.x, 0.90, na.rm = TRUE)),
-                   .names = "{.col}_{.fn}"))
-
-# 查看结果
-print(quantile_stats)
-write.xlsx(quantile_stats, "./03_result/sample_available/AgeGroup_Blood_P10_P90.xlsx", rowNames = FALSE)
-# quantile(.x, probs = c(0.10, 0.25, 0.5, 0.75, 0.90), na.rm = TRUE)
-
-# 把不符合置信区间内的样本挑出来
-# 计算 P10 和 P90 分位数
-quantile_limits <- Sample %>%
-  group_by(AgeGroup) %>%
-  summarise(across(all_of(blood_vars),
-                   list(P10 = ~quantile(.x, 0.10, na.rm = TRUE),
-                        P90 = ~quantile(.x, 0.90, na.rm = TRUE)),
-                   .names = "{.col}_{.fn}"))
-
-# 将分位数和原始数据合并
-Sample_with_limits <- Sample %>%
-  left_join(quantile_limits, by = "AgeGroup")
-
-# 添加标记变量：是否在每个指标的P10~P90之间
-for (var in blood_vars) {
-  Sample_with_limits[[paste0(var, "_in_range")]] <- with(Sample_with_limits, 
-                                                         get(var) >= get(paste0(var, "_P10")) & get(var) <= get(paste0(var, "_P90")))
-}
-
-# 统计：每个样本有多少指标超出范围
-Sample_with_limits$Out_of_Range_Count <- apply(
-  Sample_with_limits[, paste0(blood_vars, "_in_range")], 1,
-  function(x) sum(!x, na.rm = TRUE)
-)
-
-# 筛选出至少有一个指标不在区间的样本
-outlier_samples <- Sample_with_limits %>%
-  filter(Out_of_Range_Count > 0)
-
-# 查看前几行
-head(outlier_samples)
-
-# 可选：保存为 Excel
-openxlsx::write.xlsx(outlier_samples, "./03_result/sample_available/sample_outside_P10_P90.xlsx", rowNames = FALSE)
-
-# 全部都在区间内的样本
-inlier_samples <- Sample_with_limits %>%
-  filter(Out_of_Range_Count == 0)
-
-
-Sample_with_limits %>%
-  filter(!WBC_in_range) %>%
-  select(Sample_number, AgeGroup, WBC, WBC_P10, WBC_P90)
-
-# 老年组outlier指标少于等于两个的样本
-elderly_good_samples <- Sample_with_limits %>%
-  filter(AgeGroup == "Elderly", Out_of_Range_Count < 3)
-openxlsx::write.xlsx(elderly_good_samples, "./03_result/sample_available/elderly_good_samples.xlsx", rowNames = FALSE)
-
-elderly_bad_samples <- Sample_with_limits %>%
-  filter(AgeGroup == "Elderly", Out_of_Range_Count >= 3)
-openxlsx::write.xlsx(elderly_bad_samples, "./03_result/sample_available/elderly_bad_samples.xlsx", rowNames = FALSE)
