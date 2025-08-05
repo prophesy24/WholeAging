@@ -619,31 +619,12 @@ corrplot(blood_cor,
          col = colorRampPalette(c("blue", "white", "red"))(200),
          mar = c(1,1,1,1))
 dev.off()
-## 血常规的年龄趋势图 ----
-# 创建一个列表用于保存图
-plot_list <- list()
-
-# 循环生成图并保存
-for (var in blood_vars) {
-  p <- ggscatter(Sample, x = "Age", y = var,
-                 add = "reg.line", conf.int = TRUE,
-                 cor.coef = TRUE, cor.method = "spearman",
-                 xlab = "Age", ylab = var,
-                 title = paste(var, "vs Age")) +
-    theme_minimal(base_size = 14)
-  
-  # 保存图像为 PDF（也可换成 .png）
-  ggsave(filename = paste0("Scatter_", var, "_vs_Age.pdf"),
-         plot = p, width = 6, height = 5, dpi = 300)
-  
-  # 存入列表
-  plot_list[[var]] <- p
-}
 
 # 男性和女性的年龄趋势图 ----
 
 # 你要展示的血常规指标
 markers <- blood_vars
+
 
 long_df <- Sample %>%
   select(Age, Gender, all_of(markers)) %>%
@@ -678,5 +659,81 @@ p <- ggplot(long_df, aes(x = Age, y = Value, color = Gender)) +
 print(p)
 
 # 保存（每个小图大致正方形，整图较大）
-ggsave("./04_figure/Glycoproteome_discovery_cohort/Gender_Age_Trends_SquarePanels.pdf", plot = p,
+ggsave("Gender_Age_Trends_SquarePanels.pdf", plot = p,
        width = 14, height = 14, dpi = 300, bg = "white")
+
+
+# 将筛选的样本和available样本坐标轴对齐，看血常规趋势图----
+markers <- blood_vars
+Sample1 <- read_excel("01_rawdata/Sample_glycoproteome_discovery_second.xlsx")
+View(Sample1)
+Sample1 <- data.frame(Sample1)
+
+Sample2 <- read_excel("01_rawdata/Sample_available.xlsx")
+View(Sample2)
+Sample2 <- data.frame(Sample2)
+
+Sample1 <- Sample1 %>%
+  mutate(GroupID = as.character(GroupID))
+
+Sample2 <- Sample2 %>%
+  mutate(GroupID = as.character(GroupID))
+
+library(dplyr)
+
+# 合并数据以获取全局范围
+combined_data <- bind_rows(
+  Sample1 %>% mutate(Source = "Data1"),
+  Sample2 %>% mutate(Source = "Data2")
+)
+
+# 血常规指标列表
+markers <- blood_vars
+
+# 计算每个指标的全局最小最大值
+marker_limits <- combined_data %>%
+  pivot_longer(cols = all_of(markers), names_to = "Marker", values_to = "Value") %>%
+  group_by(Marker) %>%
+  summarise(
+    ymin = min(Value, na.rm = TRUE),
+    ymax = max(Value, na.rm = TRUE)
+  )
+
+library(ggplot2)
+
+plot_facet_with_limits <- function(data, source_name) {
+  long_df <- data %>%
+    select(Age, Gender, all_of(markers)) %>%
+    pivot_longer(cols = all_of(markers), names_to = "Marker", values_to = "Value") %>%
+    mutate(Marker = factor(Marker, levels = markers))
+  
+  # 合并 y 限制信息
+  plot_data <- left_join(long_df, marker_limits, by = "Marker")
+  
+  ggplot(plot_data, aes(x = Age, y = Value, color = Gender)) +
+    geom_point(alpha = 0.3, size = 1.2) +
+    geom_smooth(method = "loess", se = FALSE, size = 1.3, span = 1) +
+    facet_wrap(~ Marker, scales = "free", ncol = 4) +
+    scale_color_manual(values = c("M" = "#67A3BD", "F" = "#D1626B")) +
+    coord_cartesian(ylim = NULL) +  # 启用手动 y 范围
+    labs(title = paste0("Age Trends in ", source_name), x = "Age", y = "Value") +
+    theme_minimal(base_size = 14) +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      strip.text = element_text(size = 13, face = "bold"),
+      axis.text = element_text(color = "black"),
+      axis.title = element_text(color = "black"),
+      legend.title = element_text(face = "bold"),
+      aspect.ratio = 1
+    ) +
+    # 为每个 facet 单独设置 y 限（通过 ggforce::facet_wrap_paginate() 可细分）
+    facet_wrap(~ Marker, scales = "free", ncol = 4) +
+    geom_blank(aes(y = ymin)) +  # 强制 y 轴包含下限
+    geom_blank(aes(y = ymax))   # 强制 y 轴包含上限
+}
+
+p1 <- plot_facet_with_limits(Sample1, "Dataset 1")
+p2 <- plot_facet_with_limits(Sample2, "Dataset 2")
+
+ggsave("./04_figure/Trend_by_Marker_Data1.pdf", p1, width = 14, height = 14, dpi = 300)
+ggsave("./04_figure/Trend_by_Marker_Data2.pdf", p2, width = 14, height = 14, dpi = 300)
