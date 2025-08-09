@@ -679,6 +679,12 @@ Sample1 <- Sample1 %>%
 Sample2 <- Sample2 %>%
   mutate(PersonID = as.character(PersonID))
 
+Sample1 <- Sample1 %>%
+  mutate(GroupID = as.character(GroupID))
+
+Sample2 <- Sample2 %>%
+  mutate(GroupID = as.character(GroupID))
+
 library(dplyr)
 
 # 合并数据以获取全局范围
